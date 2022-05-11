@@ -318,236 +318,230 @@ if (sum(ip == "ggord") == 0) {
   
   ######### beta diversity ### beta_diversity ### input samples in cols; metadata and factor_name are needed; order of factors could be set; ref_group is for setting the reference of bc distance in different groups; can skip from NMDS; output bc distance, within sample distance, distance amoung groups and NMDS #####
   beta_diversity = function(reads_table, metadata = NA, factor_name = NA, order = NA, NMDS_skip = T, ref_group = NA, rarefy_to = NA, pheatmap_fontsize = 50,treeheight = 10, pheatmap_y = T) {
-    #  metadata = metadata$Flag
-    #  factor_name = 'Flag'
-    #  order = NA
-    #  NMDS_skip = T
-    #  ref_group = NA
-    
-    if (is.na(metadata)[1]) {
-      print('no metadata')
-      return(NA)
+  
+  if (is.na(metadata)[1]) {
+    print('no metadata')
+    return(NA)
+  }
+  
+  if (is.na(factor_name)[1]) {
+    print('no factor name')
+    return(NA)
+  }
+  
+  # rarefy to normalize data
+  reads_table = as.data.frame(t(reads_table))
+  
+  if (is.na(rarefy_to)) {
+    reads_table = Rarefy(reads_table, depth = min(rowSums(reads_table)))
+  } else {
+    reads_table = Rarefy(reads_table, depth = rarefy_to)
+  }
+  
+  reads_table <- reads_table$otu.tab.rff
+  reads_table <- as.data.frame(reads_table)
+  
+  metadata=as.matrix(metadata)
+  
+  # Bray_Curtis
+  Bray_Curtis <- as.matrix(vegdist(reads_table, method = "bray", binary=FALSE))
+  Bray_Curtis <- as.data.frame(Bray_Curtis)
+  
+  Bray_Curtis_2 = Bray_Curtis
+  #    Bray_Curtis_2[row(Bray_Curtis_2) <= col(Bray_Curtis_2)] =NA
+  
+  # within sample distance
+  group_dis = gather(Bray_Curtis_2)
+  group_dis$key2 = rep(row.names(Bray_Curtis_2),ncol(Bray_Curtis_2))
+  
+  Source = matrix(data = NA, ncol = length(metadata), nrow = length(metadata))
+  
+  for (a in 1:length(metadata)) {
+    Source[a,] = metadata
+  }
+  Source = gather(as.data.frame(Source))
+  group_dis$Source = Source$value
+  group_dis$Target = rep(metadata,length(metadata))
+  
+  group_dis = group_dis[!is.na(group_dis$value),]
+  group_dis$Source <- as.factor(group_dis$Source)
+  #  group_dis$value = as.numeric(as.character(group_dis$value))
+  
+  keep = group_dis$Source == group_dis$Target
+  within_dis = group_dis[keep,]
+  keep = within_dis$key != within_dis$key2
+  within_dis = within_dis[keep,]
+  #  within_dis$value = as.numeric(as.character(within_dis$value))
+  
+  if (!is.na(order)) {
+    within_dis$Source = as.factor(within_dis$Source)
+    within_dis$Source = factor(within_dis$Source, levels= order)
+  }
+  
+  within_dis_p = ggplot(within_dis, aes(x=Source, y=value)) +
+    geom_boxplot(aes(fill = Source),outlier.shape=NA) +
+    labs(x = NULL, y = "Within sample distance", fill=factor_name)+ 
+    theme(axis.title = element_text(size = 7), 
+          axis.text = element_text(size = 7), 
+          legend.text = element_text(size = 7), 
+          legend.title = element_text(size = 7),
+          axis.text.x = element_text(angle = 90, vjust = 1, hjust=1))
+  within_dis_p
+  ggsave("within_group_distance.pdf", width=3, height=2)
+  
+  
+  # significance among within sample distance, Wilcoxon test
+  group_level = unique(within_dis$Source)
+  n = length(group_level)
+  
+  within_dis_sig <- matrix(data = NA, ncol=n, nrow = n)
+  colnames(within_dis_sig) = group_level
+  row.names(within_dis_sig) = group_level
+  for (a in 1:(n-1)) {
+    for (b in (a+1): n) {
+      set1 <- as.matrix(subset(within_dis,  Source == group_level[a], value,
+                               drop = F))
+      set2 <- as.matrix(subset(within_dis,  Source == group_level[b], value,
+                               drop = F))
+      within_dis_sig[a,b] <- wilcox.test(set1, set2, paired = F)$p.value
+      
     }
-    
-    if (is.na(factor_name)[1]) {
-      print('no factor name')
-      return(NA)
-    }
-    
-    # rarefy to normalize data
-    reads_table = as.data.frame(t(reads_table))
-    
-    if (is.na(rarefy_to)) {
-      reads_table = Rarefy(reads_table, depth = min(rowSums(reads_table)))
-    } else {
-      reads_table = Rarefy(reads_table, depth = rarefy_to)
-    }
-    
-    reads_table <- reads_table$otu.tab.rff
-    reads_table <- as.data.frame(reads_table)
-    
-    metadata=as.matrix(metadata)
-    
-    # Bray_Curtis
-    Bray_Curtis <- as.matrix(vegdist(reads_table, method = "bray", binary=FALSE))
-    Bray_Curtis <- as.data.frame(Bray_Curtis)
-    
-    Bray_Curtis_2 = Bray_Curtis
-#    Bray_Curtis_2[row(Bray_Curtis_2) <= col(Bray_Curtis_2)] =NA
-    
-    # within sample distance
-    group_dis = gather(Bray_Curtis_2)
-    group_dis$key2 = rep(row.names(Bray_Curtis_2),ncol(Bray_Curtis_2))
-    
-    Source = matrix(data = NA, ncol = length(metadata), nrow = length(metadata))
-    
-    for (a in 1:length(metadata)) {
-      Source[a,] = metadata
-    }
-    Source = gather(as.data.frame(Source))
-    group_dis$Source = Source$value
-    group_dis$Target = rep(metadata,length(metadata))
-    
-    group_dis = group_dis[!is.na(group_dis$value),]
-    group_dis$Source <- as.factor(group_dis$Source)
-    #  group_dis$value = as.numeric(as.character(group_dis$value))
-    
-    keep = group_dis$Source == group_dis$Target
-    within_dis = group_dis[keep,]
-    keep = within_dis$key != within_dis$key2
-    within_dis = within_dis[keep,]
-    #  within_dis$value = as.numeric(as.character(within_dis$value))
-    
-    if (!is.na(order)) {
-      within_dis$Source = as.factor(within_dis$Source)
-      within_dis$Source = factor(within_dis$Source, levels= order)
-    }
-    
-    within_dis_p = ggplot(within_dis, aes(x=Source, y=value)) +
-      geom_boxplot(aes(fill = Source),outlier.shape=NA) +
-      labs(x = NULL, y = "Within sample distance", fill=factor_name)+ 
-      theme(axis.title = element_text(size = 7), 
-            axis.text = element_text(size = 7), 
-            legend.text = element_text(size = 7), 
-            legend.title = element_text(size = 7),
-            axis.text.x = element_text(angle = 90, vjust = 1, hjust=1))
-    within_dis_p
-    ggsave("within_group_distance.pdf", width=3, height=2)
-
-    
-    # significance among within sample distance, Wilcoxon test
-    group_level = unique(within_dis$Source)
+  }
+  write.csv(within_dis_sig,'within_group_distance.csv', row.names = T, quote = F)
+  
+  # distance among groups
+  {
+    group_level = unique(group_dis$Source)
     n = length(group_level)
+    distance_median = matrix(data=NA, nrow = n, ncol =n)
+    colnames(distance_median) = group_level
+    row.names(distance_median) = group_level
     
-    within_dis_sig <- matrix(data = NA, ncol=n, nrow = n)
-    colnames(within_dis_sig) = group_level
-    row.names(within_dis_sig) = group_level
-    for (a in 1:(n-1)) {
-      for (b in (a+1): n) {
-        set1 <- as.matrix(subset(within_dis,  Source == group_level[a], value,
-                                 drop = F))
-        set2 <- as.matrix(subset(within_dis,  Source == group_level[b], value,
-                                 drop = F))
-        within_dis_sig[a,b] <- wilcox.test(set1, set2, paired = F)$p.value
+    group_dis_sig <- matrix(data = NA, ncol=n, nrow = n)
+    colnames(group_dis_sig) = group_level
+    row.names(group_dis_sig) = group_level
+    
+    for (a in 1:n) {
+      for (b in a:n) {
+        distance_data = group_dis$value[group_dis$Source == row.names(distance_median)[a] & group_dis$Target == colnames(distance_median)[b]]
+        distance_median[a,b] <- median(distance_data)
+        distance_median[b,a] <- distance_median[a,b]
         
-      }
-    }
-    write.csv(within_dis_sig,'within_group_distance.csv', row.names = T, quote = F)
-    
-    # distance among groups
-    {
-      group_level = unique(group_dis$Source)
-      n = length(group_level)
-      distance_median = matrix(data=NA, nrow = n, ncol =n)
-      colnames(distance_median) = group_level
-      row.names(distance_median) = group_level
-      
-      group_dis_sig <- matrix(data = NA, ncol=n, nrow = n)
-      colnames(group_dis_sig) = group_level
-      row.names(group_dis_sig) = group_level
-      
-      for (a in 1:n) {
-        for (b in a:n) {
-          distance_data = group_dis$value[group_dis$Source == row.names(distance_median)[a] & group_dis$Target == colnames(distance_median)[b]]
-          distance_median[a,b] <- median(distance_data)
-          distance_median[b,a] <- distance_median[a,b]
+        if (a != b) {
+          keep = metadata == group_level[a] | metadata == group_level[b]
+          metadata_2 = as.character(metadata[keep])
+          reads_table_2 = reads_table[keep,]
           
-          if (a != b) {
-            keep = metadata == group_level[a] | metadata == group_level[b]
-            metadata_2 = as.character(metadata[keep])
-            reads_table_2 = reads_table[keep,]
-            
-            metadata_2 = as.data.frame(metadata_2)
-            pvalue <- adonis2(reads_table_2 ~ ., data = metadata_2, method = "bray")[1,5] 
-            group_dis_sig[b,a] = pvalue
-            group_dis_sig[a,b] = pvalue
-          }
-
-        }
-      }
-      write.csv(group_dis_sig,'between_group_distance.csv', row.names = T, quote = F)
-      
-      if (pheatmap_y == F & n > 2) {
-        group_dis_2_p = corrplot(distance_median,p.mat = group_dis_sig, method = 'shade', diag = F, type="upper",
-                                 sig.level = c(0.001, 0.01, 0.05), pch.cex = 0.9,insig = 'label_sig', pch.col = 'grey20', 
-                                 is.corr=FALSE, col=colorRampPalette(c("white","red"))(100)[c(10:100)],
-                                 order="original",tl.col = "black")
-        
-        pdf("between_group_distance_2.pdf")
-        corrplot(distance_median,p.mat = group_dis_sig, method = 'shade', diag = F, type="upper",
-                 sig.level = c(0.001, 0.01, 0.05), pch.cex = 0.9,insig = 'label_sig', pch.col = 'grey20', 
-                 is.corr=FALSE, col=colorRampPalette(c("white","red"))(100)[c(10:100)],
-                 order="original",tl.col = "black")
-        dev.off()
-        
-      } else {
-        group_dis_sig_2 = group_dis_sig
-        group_dis_sig_2[is.na(group_dis_sig)] = ''
-        group_dis_sig_2[group_dis_sig > 0.05] = ''
-        group_dis_sig_2[group_dis_sig <= 0.05 & group_dis_sig > 0.01] = '*'
-        group_dis_sig_2[group_dis_sig <= 0.01 & group_dis_sig > 0.001] = '**'
-        group_dis_sig_2[group_dis_sig <= 0.001] = '***'
-        
-        save_heatmap_pdf <- function(x, filename, width=8, height=8) {
-          stopifnot(!missing(x))
-          stopifnot(!missing(filename))
-          pdf(filename, width=width, height=height)
-          grid::grid.newpage()
-          grid::grid.draw(x$gtable)
-          dev.off()
+          metadata_2 = as.data.frame(metadata_2)
+          pvalue <- adonis2(reads_table_2 ~ ., data = metadata_2, method = "bray")[1,5] 
+          group_dis_sig[b,a] = pvalue
+          group_dis_sig[a,b] = pvalue
         }
         
-        group_dis_2_p = pheatmap(distance_median, cluster_rows=TRUE, show_rownames=TRUE, 
-                                 cluster_cols=T, show_colnames=T, 
-                                 color=colorRampPalette(c("white","red"))(100),
-                                 fontsize = pheatmap_fontsize, display_numbers = group_dis_sig_2, 
-                                 treeheight_row = treeheight, treeheight_col = treeheight)
-        save_heatmap_pdf(group_dis_2_p, "between_group_distance_2.pdf", width=2, height=2)
       }
-      
     }
+    write.csv(group_dis_sig,'between_group_distance.csv', row.names = T, quote = F)
     
-    
-    
-    # Running Nonmetric Multidimensional Scaling (NMDS) Ordination
-    if (NMDS_skip == T) {
-      # output
-      output = c(Bray_Curtis = list(Bray_Curtis), within_dis_p = list(within_dis_p),
-                 within_dis_sig = list(within_dis_sig), group_dis_2_p = list(group_dis_2_p),
-                 group_dis_sig = list(group_dis_sig))
-      return(output)
+    if (pheatmap_y == F & n > 2) {
+      group_dis_2_p = corrplot(distance_median,p.mat = group_dis_sig, method = 'shade', diag = F, type="upper",
+                               sig.level = c(0.001, 0.01, 0.05), pch.cex = 0.9,insig = 'label_sig', pch.col = 'grey20', 
+                               is.corr=FALSE, col=colorRampPalette(c("white","red"))(100)[c(10:100)],
+                               order="original",tl.col = "black")
+      
+      pdf("between_group_distance_2.pdf")
+      corrplot(distance_median,p.mat = group_dis_sig, method = 'shade', diag = F, type="upper",
+               sig.level = c(0.001, 0.01, 0.05), pch.cex = 0.9,insig = 'label_sig', pch.col = 'grey20', 
+               is.corr=FALSE, col=colorRampPalette(c("white","red"))(100)[c(10:100)],
+               order="original",tl.col = "black")
+      dev.off()
       
     } else {
+      group_dis_sig_2 = group_dis_sig
+      group_dis_sig_2[is.na(group_dis_sig)] = ''
+      group_dis_sig_2[group_dis_sig > 0.05] = ''
+      group_dis_sig_2[group_dis_sig <= 0.05 & group_dis_sig > 0.01] = '*'
+      group_dis_sig_2[group_dis_sig <= 0.01 & group_dis_sig > 0.001] = '**'
+      group_dis_sig_2[group_dis_sig <= 0.001] = '***'
       
-      colnames(metadata)[1] = 'factor'
-      
-      NMDS <-
-        metaMDS(Bray_Curtis,
-                distance = "bray",
-                k = 2,
-                maxit = 999, 
-                trymax = 20,
-                wascores = TRUE)
-      
-      mds_data <- as.data.frame(NMDS$points)
-      mds_data$factor <- metadata
-      
-      if (!is.na(order)[1]) {
-        mds_data$factor = as.factor(mds_data$factor)
-        mds_data$factor = factor(mds_data$factor, levels= order)
+      save_heatmap_pdf <- function(x, filename, width=8, height=8) {
+        stopifnot(!missing(x))
+        stopifnot(!missing(filename))
+        pdf(filename, width=width, height=height)
+        grid::grid.newpage()
+        grid::grid.draw(x$gtable)
+        dev.off()
       }
       
-      NMDS = ggplot(mds_data, aes(x = MDS1, y = MDS2, color = factor)) +
-        geom_point(size = 0.3)+
-        scale_colour_discrete(factor_name)+
-        theme(axis.title = element_text(size = 7), 
-              axis.text = element_text(size = 7), 
-              legend.text = element_text(size = 7), 
-              legend.title = element_text(size = 7))
-      NMDS
-      ggsave("NMDS.pdf", width=3, height=3)
-      
-      NMDS_2 = ggplot(mds_data, aes(x = MDS1, y = MDS2, color = factor)) +
-        geom_point(size = 0.3)+
-        scale_colour_discrete(factor_name)+
-        stat_ellipse(type = "t")+
-        theme(axis.title = element_text(size = 7), 
-              axis.text = element_text(size = 7), 
-              legend.text = element_text(size = 7), 
-              legend.title = element_text(size = 7))
-      NMDS_2
-      ggsave("NMDS_2.pdf", width=3, height=3)
-      
-      # output
-      output = c(Bray_Curtis = list(Bray_Curtis), within_dis_p = list(within_dis_p), 
-                 within_dis_sig = list(within_dis_sig),group_dis_2_p = list(group_dis_2_p),
-                 group_dis_sig = list(group_dis_sig), NMDS =list(NMDS), NMDS_2 =list(NMDS_2))
-      return(output)
+      group_dis_2_p = pheatmap(distance_median, cluster_rows=TRUE, show_rownames=TRUE, 
+                               cluster_cols=T, show_colnames=T, 
+                               color=colorRampPalette(c("white","red"))(100),
+                               fontsize = pheatmap_fontsize, display_numbers = group_dis_sig_2, 
+                               treeheight_row = treeheight, treeheight_col = treeheight)
+      save_heatmap_pdf(group_dis_2_p, "between_group_distance_2.pdf", width=2, height=2)
     }
     
   }
   
   
+  
+  # Running Nonmetric Multidimensional Scaling (NMDS) Ordination
+  if (NMDS_skip == T) {
+    # output
+    output = c(Bray_Curtis = list(Bray_Curtis), within_dis_p = list(within_dis_p),
+               within_dis_sig = list(within_dis_sig), group_dis_2_p = list(group_dis_2_p),
+               group_dis_sig = list(group_dis_sig))
+    return(output)
+    
+  } else {
+    
+    colnames(metadata)[1] = 'factor'
+    
+    NMDS <-
+      metaMDS(Bray_Curtis,
+              distance = "bray",
+              k = 2,
+              maxit = 999, 
+              trymax = 20,
+              wascores = TRUE)
+    
+    mds_data <- as.data.frame(NMDS$points)
+    mds_data$factor <- metadata
+    
+    if (!is.na(order)[1]) {
+      mds_data$factor = as.factor(mds_data$factor)
+      mds_data$factor = factor(mds_data$factor, levels= order)
+    }
+    
+    NMDS = ggplot(mds_data, aes(x = MDS1, y = MDS2, color = factor)) +
+      geom_point(size = 0.3)+
+      scale_colour_discrete(factor_name)+
+      theme(axis.title = element_text(size = 7), 
+            axis.text = element_text(size = 7), 
+            legend.text = element_text(size = 7), 
+            legend.title = element_text(size = 7))
+    NMDS
+    ggsave("NMDS.pdf", width=3, height=3)
+    
+    NMDS_2 = ggplot(mds_data, aes(x = MDS1, y = MDS2, color = factor)) +
+      geom_point(size = 0.3)+
+      scale_colour_discrete(factor_name)+
+      stat_ellipse(type = "t")+
+      theme(axis.title = element_text(size = 7), 
+            axis.text = element_text(size = 7), 
+            legend.text = element_text(size = 7), 
+            legend.title = element_text(size = 7))
+    NMDS_2
+    ggsave("NMDS_2.pdf", width=3, height=3)
+    
+    # output
+    output = c(Bray_Curtis = list(Bray_Curtis), within_dis_p = list(within_dis_p), 
+               within_dis_sig = list(within_dis_sig),group_dis_2_p = list(group_dis_2_p),
+               group_dis_sig = list(group_dis_sig), NMDS =list(NMDS), NMDS_2 =list(NMDS_2))
+    return(output)
+  }
+  
+}
+
   
   
   
