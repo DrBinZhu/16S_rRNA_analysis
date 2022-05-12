@@ -1,4 +1,4 @@
-# Automatic analysis on 16s rRNA sequencing data
+# Automatic analysis on 16S rRNA sequencing data
 # Please see the example files and paste your data to the related files
 # Open '16s_analysis_pipeline_Bin_Zhu.R' by Rstudio, select all the commands and click run
 # If you are using a different file name as the input of reads table and/or metadata, please change the name to 'reads_table.csv' and/or 'metadata.csv'
