@@ -1,9 +1,9 @@
 # Automatic pipeline for 16S rRNA data analysis
 Please see the example files and modify the formate of your input.
 Please change the names to the input files to 'reads_table.csv' and 'metadata.csv'.
-Windows users need to move the '16s_analysis_pipeline_BZ' folder out of download folder before running the scripts.
-Open '16s_analysis_pipeline_BZ.R' by Rstudio, select all the commands, and click run
-You need to input a control name for each comparison.
+Windows users need to move the '16s_analysis_pipeline_BZ' folder out of your 'download' folder before running the scripts.
+
+# Open '16s_analysis_pipeline_BZ.R' by Rstudio, select all the commands, and click run. You need to input a control name for each comparison.
 
 # Methods
 Taxa with at least 0.1% (or 0.01%) relative abundance in at least 5% (or 15%), respectively, of the samples will be kept in the feature table of the 16S rRNA profiles. Samples in the feature table with a total sample reads less than 5,000 will be excluded. 
