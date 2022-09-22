@@ -1,4 +1,4 @@
-# Automatic analysis on 16s rRNA sequencing data
+# Automatic pipeline for 16S rRNA data analysis
 Please see the example files and modify the formate of your input.
 Please change the names to the input files to 'reads_table.csv' and 'metadata.csv'.
 Windows users need to move the '16s_analysis_pipeline_BZ' folder out of download folder before running the scripts.
