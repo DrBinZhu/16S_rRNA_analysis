@@ -18,7 +18,7 @@ parameter_13,20,show 20 most abundant taxa in the heatmap,heatmap
 parameter_14,0.3,definition of vagitype (predominated taxon with relative abundance no less than 30%),heatmap
 parameter_15,10,heatmap_width,heatmap
 parameter_16,4,heatmap_height,heatmap
-parameter_17,5,vagitype number shown in the heatmap,heatmap
+parameter_17,5,vagitype number shown on the heatmap,heatmap
 parameter_21,5000,"remove a sample if the total reads of the sample is less than 5,000",all
 parameter_22,0.01,"Taxa with at least 1% (or 0.1%) relative abundance in at least 5% (or 15%), respectively, of the samples will be kept in the feature table of the 16S rRNA profiles.",all
 parameter_23,0.1,"Taxa threshold to define abundant taxa; Taxa with at least 10% (or 1%) relative abundance in at least 5% (or 15%), respectively, of the samples will be kept in the feature table of the 16S rRNA profiles.",network
